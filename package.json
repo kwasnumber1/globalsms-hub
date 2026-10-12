@@ -1,13 +1,13 @@
 {
   "name": "globalsms-hub",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "vite build"
   },
   "dependencies": {
-    "@supabase/supabase-js": "latest",
+    "@supabase/supabase-js": "^2.57.0",
     "@vitejs/plugin-react": "latest",
     "vite": "latest",
     "react": "latest",
