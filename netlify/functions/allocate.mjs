@@ -13,72 +13,56 @@ export default async function handler(request) {
     return reply(405, { error: "POST request required." });
   }
 
-  let body;
-
   try {
-    body = await request.json();
+    const body = await request.json();
+    const selected = countries[body.country];
+
+    if (!selected) {
+      return reply(400, { error: "Unsupported country." });
+    }
+
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!url || !key) {
+      return reply(500, {
+        error: "Supabase environment variables are missing."
+      });
+    }
+
+    const supabase = createClient(url, key);
+
+    const { data, error } = await supabase
+      .from("sms_sessions")
+      .insert({
+        country: body.country,
+        phone_number: selected.number,
+        status: "demo"
+      })
+      .select("id, country, phone_number, status, created_at")
+      .single();
+
+    if (error) {
+      console.error("Database insert failed:", error.message);
+      return reply(500, {
+        error: "Could not save the demo session."
+      });
+    }
+
+    return reply(200, {
+      ok: true,
+      demo: true,
+      session: data,
+      message: "Demo session saved successfully. This is not a real phone number."
+    });
   } catch {
-    return reply(400, { error: "Invalid JSON." });
+    return reply(400, { error: "Invalid request." });
   }
-
-  const selected = countries[body.country];
-
-  if (!selected) {
-    return reply(400, { error: "Unsupported country." });
-  }
-
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return reply(500, {
-      error: "Supabase environment variables are missing."
-    });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  const sessionToken = crypto.randomUUID();
-
-  const { data, error } = await supabase
-    .from("sms_sessions")
-    .insert({
-      session_token: sessionToken,
-      country: body.country,
-      phone_number: selected.number,
-      status: "demo"
-    })
-    .select("id, session_token, country, phone_number, status, created_at")
-    .single();
-
-  if (error) {
-    console.error("Supabase insert failed:", error.message);
-
-    return reply(500, {
-      error: "Could not save demo session."
-    });
-  }
-
-  return reply(200, {
-    session: {
-      id: data.id,
-      token: data.session_token,
-      country: data.country,
-      countryName: selected.name,
-      phoneNumber: data.phone_number,
-      createdAt: data.created_at,
-      demo: true
-    },
-    messages: [],
-    message: "Demo session saved. No real phone number or SMS is provided."
-  });
 }
 
 function reply(status, data) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json"
-    }
+    headers: { "Content-Type": "application/json" }
   });
 }
